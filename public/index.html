@@ -92,13 +92,6 @@
     <h3 class="section-title">キーボード操作</h3>
     <div id="settings-keyboard-table" class="bindings-table"></div>
 
-    <h3 class="section-title">画面コントローラー</h3>
-    <label class="field-label" for="settings-input-mode">移動入力方式</label>
-    <select id="settings-input-mode" class="select-input">
-      <option value="dpad">十字キー</option>
-      <option value="stick">スティック</option>
-    </select>
-
     <h3 class="section-title">コントローラー割り当て</h3>
     <p class="hint-text">画面上のボタン・十字キー（スティックも連動）にどの操作を割り当てるか選べます。</p>
     <div id="settings-buttons-table" class="bindings-table"></div>
@@ -141,10 +134,6 @@
 
   <div id="lobby-host-controls" class="lobby-host-controls hidden">
     <div class="cpu-add-row">
-      <select id="lobby-add-cpu-mode" class="select-input">
-        <option value="tetris">CPU: ブロック</option>
-        <option value="puyo">CPU: ぷよ</option>
-      </select>
       <select id="lobby-add-cpu-difficulty" class="select-input">
         <option value="easy">CPU: よわい</option>
         <option value="normal" selected>CPU: ふつう</option>
@@ -167,6 +156,8 @@
     <button id="btn-menu" class="icon-btn corner-btn" title="メニュー">☰</button>
   </header>
 
+  <div id="attack-announcements" class="attack-announcements"></div>
+
   <div class="game-main" id="game-main">
     <div class="side-panel left-side">
       <div class="panel-box">
@@ -185,8 +176,7 @@
 
     <div class="board-wrap">
       <canvas id="main-canvas" width="360" height="720"></canvas>
-      <div id="garbage-meter" class="garbage-meter" aria-label="おじゃま予告"><div class="fill" id="garbage-fill" style="height:0%"></div><span id="garbage-label">0</span></div>
-      <div id="attack-notice" class="attack-notice hidden" aria-live="polite"></div>
+      <div id="garbage-meter" class="garbage-meter"><div class="fill" id="garbage-fill" style="height:0%"></div></div>
     </div>
 
     <div class="side-panel right-side">
