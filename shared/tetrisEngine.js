@@ -18,9 +18,9 @@
 
   // Piece shapes defined on a 4x4 grid per rotation state (0=spawn,1=R,2=2,3=L)
   const SHAPES = {
-  I: [
-    [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-  ],
+    I: [
+      [[1,1,1,1]],
+    ],
     O: [
       [[1,1],[1,1]],
     ],
@@ -88,7 +88,7 @@
   // Guideline-ish attack table
   function linesToGarbage(lines, backToBack, comboCount, perfectClear) {
     let g = 0;
-    if (lines === 1) g = 1;
+    if (lines === 1) g = 0;
     else if (lines === 2) g = 1;
     else if (lines === 3) g = 2;
     else if (lines >= 4) g = 4;
@@ -116,6 +116,8 @@
       this.combo = -1;
       this.backToBack = false;
       this.pendingGarbage = 0;
+      this.garbageTimerMs = 0;
+      this.GARBAGE_DELAY_MS = 2200;
       this.gameOver = false;
       this.dropIntervalMs = opts.dropIntervalMs || 800;
       this._gravityAcc = 0;
@@ -268,6 +270,7 @@
       this.level = 1 + Math.floor(this.linesClearedTotal / 10);
       let garbageOut = 0;
       const perfectClear = cleared > 0 && this.board.every((row) => row.every((c) => !c));
+      const wasBackToBack = this.backToBack;
       if (cleared > 0) {
         this.combo++;
         const isTetris = cleared >= 4;
@@ -277,21 +280,20 @@
       } else {
         this.combo = -1;
       }
-      // apply pending incoming garbage minus what we just sent out (offset)
-      let received = 0;
-      if (this.pendingGarbage > 0) {
+      // Sending an attack immediately cancels out any garbage still queued
+      // against us (real Puyo Tetris "offsetting"). Whatever isn't cancelled
+      // keeps counting down and lands later via tick()'s timer, not instantly.
+      if (this.pendingGarbage > 0 && garbageOut > 0) {
         const offset = Math.min(this.pendingGarbage, garbageOut);
         garbageOut -= offset;
         this.pendingGarbage -= offset;
-        if (garbageOut <= 0 && this.pendingGarbage > 0) {
-          received = this.pendingGarbage;
-          this._applyGarbageRows(received);
-          this.pendingGarbage = 0;
-        }
+        if (this.pendingGarbage <= 0) { this.pendingGarbage = 0; this.garbageTimerMs = 0; }
       }
       this._spawnPiece();
-      const attackLabel = cleared >= 4 ? 'TETRIS！' : (cleared === 3 ? '3ライン！' : (cleared === 2 ? 'ダブル！' : ''));
-      const events = { locked: true, linesCleared: cleared, garbageOut, garbageIn: received, gameOver: this.gameOver, perfectClear, attackLabel };
+      const events = {
+        locked: true, linesCleared: cleared, garbageOut, gameOver: this.gameOver,
+        perfectClear, combo: Math.max(this.combo, 0), backToBack: cleared >= 4 && wasBackToBack,
+      };
       this.lastEvents = events;
       return events;
     }
@@ -309,14 +311,28 @@
 
     receiveGarbage(n) {
       this.pendingGarbage += n;
+      if (this.garbageTimerMs <= 0) this.garbageTimerMs = this.GARBAGE_DELAY_MS;
     }
 
     tick(dtMs) {
-      if (this.gameOver) return null;
+      if (this.gameOver) return { lockEvent: null, garbageLanded: 0 };
+      let garbageLanded = 0;
+      if (this.garbageTimerMs > 0) {
+        this.garbageTimerMs -= dtMs;
+        if (this.garbageTimerMs <= 0 && this.pendingGarbage > 0) {
+          garbageLanded = this.pendingGarbage;
+          this._applyGarbageRows(garbageLanded);
+          this.pendingGarbage = 0;
+          this.garbageTimerMs = 0;
+          if (!this._collides(this.cur, 0, 0, 0)) {
+            // piece got pushed up into a wall by the new rows; nudge check handled on next spawn
+          }
+        }
+      }
       let dropMs = this.dropIntervalMs;
       dropMs = Math.max(80, dropMs - (this.level - 1) * 40);
       this._gravityAcc += dtMs;
-      let evt = null;
+      let lockEvent = null;
       if (this._gravityAcc >= dropMs) {
         this._gravityAcc = 0;
         if (!this._collides(this.cur, 0, 1, 0)) {
@@ -326,11 +342,11 @@
           this._locking = true;
           this._lockAcc += dropMs;
           if (this._lockAcc >= 500) {
-            evt = this._forceLock();
+            lockEvent = this._forceLock();
           }
         }
       }
-      return evt;
+      return { lockEvent, garbageLanded };
     }
 
     getState() {
@@ -350,6 +366,8 @@
         level: this.level,
         combo: Math.max(this.combo, 0),
         pendingGarbage: this.pendingGarbage,
+        garbageTimerMs: Math.max(0, this.garbageTimerMs),
+        garbageDelayMs: this.GARBAGE_DELAY_MS,
         gameOver: this.gameOver,
         pieceId: this.pieceId,
       };
