@@ -44,6 +44,8 @@
       Network.setName(s.name);
     }
     $('settings-name-input').value = s.name || '';
+    $('settings-input-mode').value = s.controls.inputMode || 'dpad';
+    applyInputMode();
     buildBindingTables();
   }
 
@@ -74,6 +76,16 @@
   $('btn-open-settings-home').addEventListener('click', () => openModal('modal-settings'));
   $('btn-close-settings').addEventListener('click', () => closeModal('modal-settings'));
   $('btn-menu-settings').addEventListener('click', () => openModal('modal-settings'));
+  function applyInputMode() {
+    const mode = Settings.current.controls.inputMode || 'dpad';
+    document.body.classList.toggle('input-stick', mode === 'stick');
+    document.body.classList.toggle('input-dpad', mode !== 'stick');
+  }
+  $('settings-input-mode').addEventListener('change', (e) => {
+    Settings.current.controls.inputMode = e.target.value === 'stick' ? 'stick' : 'dpad';
+    Settings.save();
+    applyInputMode();
+  });
 
   function keyLabel(k) {
     if (k === ' ') return 'Space';
@@ -162,9 +174,12 @@
       try {
         const parsed = JSON.parse(reader.result);
         Settings.current.controls = {
+          inputMode: parsed.inputMode === 'stick' ? 'stick' : 'dpad',
           keyboard: Object.assign({}, DEFAULT_CONTROLS.keyboard, parsed.keyboard),
           buttons: Object.assign({}, DEFAULT_CONTROLS.buttons, parsed.buttons),
         };
+        $('settings-input-mode').value = Settings.current.controls.inputMode;
+        applyInputMode();
         Settings.save();
         buildBindingTables();
         showToast('操作設定を読み込みました');
