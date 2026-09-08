@@ -282,7 +282,7 @@
   });
 
   $('btn-add-cpu').addEventListener('click', () => {
-    Network.addCPU($('lobby-add-cpu-difficulty').value);
+    Network.addCPU($('lobby-add-cpu-difficulty').value, $('lobby-add-cpu-mode').value);
   });
 
   $('btn-start-game').addEventListener('click', () => {
@@ -307,7 +307,7 @@
       if (mine) card.classList.add('me');
       const modeLabel = p.mode === 'puyo' ? 'パズルモード' : 'ブロックモード';
       card.innerHTML = `
-        <div class="pname">${escapeHtml(p.name)} ${p.isCPU ? `<span class="ptag">CPU ${diffLabel(p.difficulty)}</span>` : ''}</div>
+        <div class="pname">${escapeHtml(p.name)} ${p.isCPU ? `<span class="ptag">CPU ${diffLabel(p.difficulty)}・${p.mode === 'puyo' ? 'ぷよ' : 'テトリス'}</span>` : ''}</div>
         <div class="pmode">${modeLabel}</div>
         <div class="pready ${p.ready ? 'ok' : 'wait'}">${p.ready ? '準備OK' : '準備中…'}</div>
       `;
@@ -428,8 +428,19 @@
         $('level-label').textContent = me.state.chain || 0;
       }
       const maxGarbage = 24;
-      const pct = Math.min(100, Math.round((me.state.pendingGarbage / maxGarbage) * 100));
+      const incoming = (me.state.pendingGarbage || 0) + (me.pendingIncoming || 0);
+      const pct = Math.min(100, Math.round((incoming / maxGarbage) * 100));
       $('garbage-fill').style.height = pct + '%';
+      $('garbage-label').textContent = `${incoming}${me.state.mode === 'puyo' ? '個' : '段'}`;
+      const attack = (me.attackEvents || [])[me.attackEvents.length - 1];
+      if (attack && attack.at !== renderMyView._lastAttack) {
+        renderMyView._lastAttack = attack.at;
+        const notice = $('attack-notice');
+        notice.textContent = `${attack.label || (attack.mode === 'puyo' ? '連鎖攻撃' : 'ライン攻撃')} おじゃま${attack.amount}${attack.mode === 'puyo' ? '個' : '段'}`;
+        notice.classList.remove('hidden');
+        clearTimeout(renderMyView._noticeTimer);
+        renderMyView._noticeTimer = setTimeout(() => notice.classList.add('hidden'), 1400);
+      }
     }
 
     const row = $('opponents-row');
