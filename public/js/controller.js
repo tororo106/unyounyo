@@ -64,7 +64,7 @@ const Controller = (() => {
   function initButtons(root) {
     root.querySelectorAll('[data-slot]').forEach((el) => {
       const slot = el.getAttribute('data-slot');
-      const down = (e) => { e.preventDefault(); pressSlot(slot); };
+      const down = (e) => { e.preventDefault(); e.stopPropagation(); pressSlot(slot); };
       const up = (e) => { e.preventDefault(); releaseSlot(slot); };
       el.addEventListener('pointerdown', down);
       el.addEventListener('pointerup', up);
@@ -122,7 +122,7 @@ const Controller = (() => {
       stick.setPointerCapture(e.pointerId);
       handleMove(e.clientX, e.clientY);
     });
-    stick.addEventListener('pointermove', (e) => { if (dragging) handleMove(e.clientX, e.clientY); });
+    stick.addEventListener('pointermove', (e) => { e.preventDefault(); if (dragging) handleMove(e.clientX, e.clientY); });
     stick.addEventListener('pointerup', reset);
     stick.addEventListener('pointercancel', reset);
   }
