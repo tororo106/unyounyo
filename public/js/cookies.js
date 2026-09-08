@@ -45,6 +45,7 @@ const BUTTON_SLOTS = [
 ];
 
 const DEFAULT_CONTROLS = {
+  inputMode: 'dpad',
   keyboard: {
     moveLeft: 'ArrowLeft',
     moveRight: 'ArrowRight',
@@ -83,6 +84,7 @@ const Settings = {
         const parsed = JSON.parse(raw);
         data.name = parsed.name || '';
         data.controls = {
+          inputMode: parsed.controls && parsed.controls.inputMode === 'stick' ? 'stick' : 'dpad',
           keyboard: Object.assign({}, DEFAULT_CONTROLS.keyboard, parsed.controls && parsed.controls.keyboard),
           buttons: Object.assign({}, DEFAULT_CONTROLS.buttons, parsed.controls && parsed.controls.buttons),
         };
