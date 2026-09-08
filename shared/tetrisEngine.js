@@ -18,9 +18,9 @@
 
   // Piece shapes defined on a 4x4 grid per rotation state (0=spawn,1=R,2=2,3=L)
   const SHAPES = {
-    I: [
-      [[1,1,1,1]],
-    ],
+  I: [
+    [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  ],
     O: [
       [[1,1],[1,1]],
     ],
@@ -88,7 +88,7 @@
   // Guideline-ish attack table
   function linesToGarbage(lines, backToBack, comboCount, perfectClear) {
     let g = 0;
-    if (lines === 1) g = 0;
+    if (lines === 1) g = 1;
     else if (lines === 2) g = 1;
     else if (lines === 3) g = 2;
     else if (lines >= 4) g = 4;

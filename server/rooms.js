@@ -127,8 +127,9 @@ class Room {
       p.engine = makeEngine(p.mode, seed + Math.floor(Math.random() * 1000));
       p.finished = false;
       p.place = null;
-      p.focusTarget = null;
       p.manualTarget = null;
+      const initialOpponents = this.playerList.filter((candidate) => candidate.id !== p.id);
+      p.focusTarget = initialOpponents.length ? initialOpponents[Math.floor(Math.random() * initialOpponents.length)].id : null;
       if (p.isCPU) {
         p.cpu = createCPU(p.mode, p.engine, p.difficulty);
       } else {

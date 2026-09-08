@@ -185,7 +185,7 @@ const SHAPE_4x2 = {
 
 function makeMiniShape(type) {
   const wrap = document.createElement('div');
-  wrap.className = 'mini-shape';
+  wrap.className = `mini-shape${type === 'I' ? ' mini-i' : ''}`;
   const shape = SHAPE_4x2[type];
   const color = cellColor(pieceColorOf(type));
   wrap.style.gridTemplateColumns = `repeat(${shape[0].length}, 1fr)`;
