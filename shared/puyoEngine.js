@@ -58,6 +58,8 @@
       this._fillQueue();
       this.score = 0;
       this.pendingGarbage = 0;
+      this.garbageTimerMs = 0;
+      this.GARBAGE_DELAY_MS = 2200;
       this.gameOver = false;
       this.chainNow = 0;
       this.dropIntervalMs = opts.dropIntervalMs || 700;
@@ -215,19 +217,17 @@
         const chain = this.chainNow;
         this._chainScoreAccum = 0;
         let garbageOut = Math.floor(totalScore / 70);
-        let received = 0;
-        if (this.pendingGarbage > 0) {
+        // Sending an attack immediately cancels out any garbage still queued
+        // against us. Whatever isn't cancelled keeps counting down and lands
+        // later via tick()'s timer, not instantly.
+        if (this.pendingGarbage > 0 && garbageOut > 0) {
           const offset = Math.min(this.pendingGarbage, garbageOut);
           garbageOut -= offset;
           this.pendingGarbage -= offset;
-          if (garbageOut <= 0 && this.pendingGarbage > 0) {
-            received = this.pendingGarbage;
-            this._applyGarbage(received);
-            this.pendingGarbage = 0;
-          }
+          if (this.pendingGarbage <= 0) { this.pendingGarbage = 0; this.garbageTimerMs = 0; }
         }
         this._spawnPair();
-        const events = { locked: true, chain, garbageOut, garbageIn: received, gameOver: this.gameOver, attackLabel: chain > 0 ? `${chain}連鎖！` : '' };
+        const events = { locked: true, chain, garbageOut, gameOver: this.gameOver };
         this.lastEvents = events;
         return events;
       }
@@ -287,17 +287,30 @@
       }
     }
 
-    receiveGarbage(n) { this.pendingGarbage += n; }
+    receiveGarbage(n) {
+      this.pendingGarbage += n;
+      if (this.garbageTimerMs <= 0) this.garbageTimerMs = this.GARBAGE_DELAY_MS;
+    }
 
     tick(dtMs) {
-      if (this.gameOver) return null;
+      if (this.gameOver) return { lockEvent: null, garbageLanded: 0 };
+      let garbageLanded = 0;
+      if (this.garbageTimerMs > 0) {
+        this.garbageTimerMs -= dtMs;
+        if (this.garbageTimerMs <= 0 && this.pendingGarbage > 0) {
+          garbageLanded = this.pendingGarbage;
+          this._applyGarbage(garbageLanded);
+          this.pendingGarbage = 0;
+          this.garbageTimerMs = 0;
+        }
+      }
       if (this._resolving) {
         this._resolveTimer += dtMs;
         if (this._resolveTimer >= 220) {
           this._resolveTimer = 0;
-          return this._stepResolve();
+          return { lockEvent: this._stepResolve(), garbageLanded };
         }
-        return null;
+        return { lockEvent: null, garbageLanded };
       }
       this._gravityAcc += dtMs;
       if (this._gravityAcc >= this.dropIntervalMs) {
@@ -308,7 +321,7 @@
           this._lockPair();
         }
       }
-      return null;
+      return { lockEvent: null, garbageLanded };
     }
 
     getState() {
@@ -332,6 +345,8 @@
         score: this.score,
         chain: this.chainNow,
         pendingGarbage: this.pendingGarbage,
+        garbageTimerMs: Math.max(0, this.garbageTimerMs),
+        garbageDelayMs: this.GARBAGE_DELAY_MS,
         gameOver: this.gameOver,
         resolving: this._resolving,
         pieceId: this.pieceId,
