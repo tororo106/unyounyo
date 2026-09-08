@@ -235,25 +235,52 @@ body.is-spectator #garbage-meter { display: none; }
 .stat-value { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--cyan); }
 .hold-box, .next-box { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 40px; }
 
-  .mini-shape { display: grid; gap: 1px; width: 36px; height: 24px; margin: 0 auto; align-items: center; }
-  .mini-shape.mini-i { width: 48px; height: 14px; }
+.mini-shape { display: grid; gap: 1px; width: 36px; height: 24px; margin: 0 auto; }
 .mini-cell { width: 100%; height: 100%; background: transparent; border-radius: 2px; }
 .mini-piece { display: flex; justify-content: center; }
 .mini-puyo-pair { display: flex; flex-direction: column; gap: 2px; align-items: center; }
 .mini-puyo-pair span { width: 16px; height: 16px; border-radius: 50%; display: block; }
 .hold-na { font-size: 10px; color: var(--ink-dim); }
 
-.board-wrap { position: relative; touch-action: none; }
-#main-canvas { touch-action: none; }
-  .attack-notice { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); background: var(--pink); color: #2a0b1c; padding: 8px 12px; border-radius: var(--radius-m); font-family: var(--font-head); font-weight: 800; white-space: nowrap; z-index: 3; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
-.attack-notice.hidden { display: none; }
+.board-wrap { position: relative; }
 #main-canvas { background: rgba(10,8,25,0.5); border: 3px solid var(--bg-3); border-radius: var(--radius-s); max-height: 62vh; max-width: 46vw; }
 .garbage-meter {
   position: absolute; right: -12px; top: 0; bottom: 0; width: 8px;
   background: var(--bg-2); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column-reverse;
+  transition: box-shadow 0.2s;
 }
-.garbage-meter .fill { background: linear-gradient(0deg, var(--danger), #ff9a9a); width: 100%; }
-.garbage-meter #garbage-label { position: absolute; inset: 0; writing-mode: vertical-rl; font-size: 10px; color: var(--ink); text-align: center; padding: 4px 0; text-shadow: 0 1px 2px #000; }
+.garbage-meter .fill { background: linear-gradient(0deg, var(--danger), #ff9a9a); width: 100%; transition: height 0.2s linear; }
+.garbage-meter.incoming { animation: garbage-pulse 0.6s infinite; }
+@keyframes garbage-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,95,109,0.6); }
+  50% { box-shadow: 0 0 8px 2px rgba(255,95,109,0.9); }
+}
+
+.attack-announcements {
+  position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+  z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  pointer-events: none; width: 100%; max-width: 360px;
+}
+.attack-toast {
+  background: rgba(20,17,45,0.92); border: 2px solid var(--amber); color: var(--ink);
+  padding: 8px 16px; border-radius: var(--radius-m); font-family: var(--font-head); font-weight: 700;
+  font-size: 14px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: attack-toast-in 0.25s ease-out, attack-toast-out 0.4s ease-in 1.4s forwards;
+}
+.attack-toast.mine { border-color: var(--cyan); }
+.attack-toast.garbage-landed { border-color: var(--danger); }
+.attack-toast .toast-weight { color: var(--danger); font-size: 12px; margin-left: 6px; }
+@keyframes attack-toast-in { from { opacity: 0; transform: translateY(-8px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes attack-toast-out { to { opacity: 0; transform: translateY(-6px); } }
+
+.board-shake { animation: board-shake-kf 0.35s; }
+@keyframes board-shake-kf {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
 
 /* ---------- VIRTUAL CONTROLLER ---------- */
 .vcontroller {
@@ -284,9 +311,7 @@ body.is-spectator #garbage-meter { display: none; }
   border: 2px solid var(--violet); transition: transform 0.02s linear;
 }
 
-  body.input-stick .dpad { display: none; }
-  body.input-dpad .stick-wrap { display: none; }
-  .dpad { display: grid; grid-template-columns: 44px 44px 44px; grid-template-rows: 44px 44px 44px;
+.dpad { display: grid; grid-template-columns: 44px 44px 44px; grid-template-rows: 44px 44px 44px;
   gap: 2px; justify-content: center; }
 .dpad-btn {
   background: rgba(38,36,84,0.85); border: 2px solid var(--bg-3); color: var(--ink);
