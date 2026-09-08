@@ -126,6 +126,10 @@
       let xDiff = chosen.x - eng.cur.x;
       while (xDiff > 0) { seq.push('moveRight'); xDiff--; }
       while (xDiff < 0) { seq.push('moveLeft'); xDiff++; }
+      if (this.cfg.lookahead) {
+        const softSteps = Math.max(1, Math.min(5, Math.floor((eng.cur.y + 4) / 5)));
+        for (let i = 0; i < softSteps; i++) seq.push('softDrop');
+      }
       seq.push('hardDrop');
       return seq;
     }
@@ -271,6 +275,10 @@
       let xDiff = chosen.x - eng.axis.x;
       while (xDiff > 0) { seq.push('moveRight'); xDiff--; }
       while (xDiff < 0) { seq.push('moveLeft'); xDiff++; }
+      if (this.cfg.lookahead) {
+        const softSteps = Math.max(1, Math.min(4, Math.floor((eng.axis.y + 3) / 6)));
+        for (let i = 0; i < softSteps; i++) seq.push('softDrop');
+      }
       seq.push('hardDrop');
       return seq;
     }
