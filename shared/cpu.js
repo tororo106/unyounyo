@@ -14,10 +14,10 @@
   'use strict';
 
   const DIFFICULTIES = {
-    easy: { mistakeChance: 0.55, minDelay: 700, maxDelay: 1200, inputGap: 110, lookahead: false },
-    normal: { mistakeChance: 0.28, minDelay: 400, maxDelay: 750, inputGap: 80, lookahead: false },
-    hard: { mistakeChance: 0.10, minDelay: 200, maxDelay: 380, inputGap: 55, lookahead: true },
-    expert: { mistakeChance: 0.0, minDelay: 60, maxDelay: 160, inputGap: 35, lookahead: true },
+    easy: { mistakeChance: 0.55, minDelay: 700, maxDelay: 1200, inputGap: 110, attackBias: 0.3 },
+    normal: { mistakeChance: 0.28, minDelay: 400, maxDelay: 750, inputGap: 80, attackBias: 0.6 },
+    hard: { mistakeChance: 0.10, minDelay: 200, maxDelay: 380, inputGap: 55, attackBias: 1.0 },
+    expert: { mistakeChance: 0.0, minDelay: 60, maxDelay: 160, inputGap: 35, attackBias: 1.5 },
   };
 
   function cloneGrid(g) { return g.map((r) => r.slice()); }
@@ -51,12 +51,14 @@
   }
 
   // ---------- Tetris CPU ----------
-  function tetrisEvaluate(grid, cols, rows, linesCleared) {
+  const LINE_CLEAR_BONUS = [0, 1, 5, 12, 30]; // index by lines cleared (0-4), nonlinear to mildly reward bigger clears
+  function tetrisEvaluate(grid, cols, rows, linesCleared, attackBias) {
     const h = heights(grid, cols, rows);
     const agg = h.reduce((a, b) => a + b, 0);
     const holes = holesCount(grid, cols, rows);
     const bump = bumpiness(h);
-    return 0.760666 * linesCleared - 0.510066 * agg - 0.35663 * holes - 0.184483 * bump;
+    const lineBonus = LINE_CLEAR_BONUS[Math.min(linesCleared, 4)] * (1 + attackBias);
+    return lineBonus - 0.510066 * agg - 0.35663 * holes - 0.184483 * bump;
   }
 
   function tetrisSimulate(board, cols, totalRows, type, rot, x) {
@@ -103,7 +105,7 @@
         for (let x = -2; x < cols; x++) {
           const res = tetrisSimulate(eng.board, cols, totalRows, type, rot, x);
           if (!res) continue;
-          const score = tetrisEvaluate(res.grid, cols, totalRows, res.cleared);
+          const score = tetrisEvaluate(res.grid, cols, totalRows, res.cleared, this.cfg.attackBias);
           candidates.push({ rot, x, score });
         }
       }
@@ -126,10 +128,6 @@
       let xDiff = chosen.x - eng.cur.x;
       while (xDiff > 0) { seq.push('moveRight'); xDiff--; }
       while (xDiff < 0) { seq.push('moveLeft'); xDiff++; }
-      if (this.cfg.lookahead) {
-        const softSteps = Math.max(1, Math.min(5, Math.floor((eng.cur.y + 4) / 5)));
-        for (let i = 0; i < softSteps; i++) seq.push('softDrop');
-      }
       seq.push('hardDrop');
       return seq;
     }
@@ -137,8 +135,9 @@
     update(dtMs) {
       const eng = this.engine;
       if (eng.gameOver) return;
-      if (eng.pieceId !== this.lastPieceId && this.state === 'idle') {
+      if (eng.pieceId !== this.lastPieceId) {
         this.lastPieceId = eng.pieceId;
+        this.inputQueue = [];
         this.state = 'thinking';
         this.timer = this.cfg.minDelay + Math.random() * (this.cfg.maxDelay - this.cfg.minDelay);
       }
@@ -212,7 +211,8 @@
       }
       return true;
     };
-    let y = -2;
+    const startY = -2;
+    let y = startY;
     if (!fits(x, y)) return null;
     while (fits(x, y + 1)) y++;
     const grid = cloneGrid(board);
@@ -220,18 +220,18 @@
     if (y >= 0) grid[y][x] = axisColor;
     if (cy >= 0) grid[cy][cx] = childColor;
     puyoSettle(grid, cols, totalRows);
-    return grid;
+    return { grid, dist: y - startY };
   }
 
-  function puyoEvaluate(grid, cols, totalRows) {
+  function puyoEvaluate(grid, cols, totalRows, attackBias) {
     const h = heights(grid, cols, totalRows);
     const agg = h.reduce((a, b) => a + b, 0);
     const bump = bumpiness(h);
     const { maxGroup, groups } = puyoFloodFind(grid, cols, totalRows);
     const topOut = h.some((v) => v >= totalRows - 1) ? 1000 : 0;
     let clearBonus = 0;
-    if (maxGroup >= 4) clearBonus = 200 + maxGroup * 20;
-    return clearBonus + groups * 6 - agg * 1.1 - bump * 2.2 - topOut;
+    if (maxGroup >= 4) clearBonus = (200 + maxGroup * 20) * (1 + attackBias);
+    return clearBonus + groups * 6 * (1 + attackBias * 0.5) - agg * 1.1 - bump * 2.2 - topOut;
   }
 
   class PuyoCPU {
@@ -254,10 +254,10 @@
       const candidates = [];
       for (let orient = 0; orient < 4; orient++) {
         for (let x = 0; x < cols; x++) {
-          const grid = puyoSimulate(eng.board, cols, totalRows, axisColor, childColor, orient, x);
-          if (!grid) continue;
-          const score = puyoEvaluate(grid, cols, totalRows);
-          candidates.push({ orient, x, score });
+          const res = puyoSimulate(eng.board, cols, totalRows, axisColor, childColor, orient, x);
+          if (!res) continue;
+          const score = puyoEvaluate(res.grid, cols, totalRows, this.cfg.attackBias);
+          candidates.push({ orient, x, score, dist: res.dist });
         }
       }
       if (candidates.length === 0) return null;
@@ -275,11 +275,11 @@
       let xDiff = chosen.x - eng.axis.x;
       while (xDiff > 0) { seq.push('moveRight'); xDiff--; }
       while (xDiff < 0) { seq.push('moveLeft'); xDiff++; }
-      if (this.cfg.lookahead) {
-        const softSteps = Math.max(1, Math.min(4, Math.floor((eng.axis.y + 3) / 6)));
-        for (let i = 0; i < softSteps; i++) seq.push('softDrop');
-      }
-      seq.push('hardDrop');
+      // Puyo has no hard-drop (matches the original game) — queue enough
+      // softDrops to actually reach the bottom and lock. A couple of extra
+      // steps are harmless padding in case rotation shifted the start row.
+      const dropSteps = Math.max(1, chosen.dist) + 3;
+      for (let i = 0; i < dropSteps; i++) seq.push('softDrop');
       return seq;
     }
 
@@ -287,8 +287,9 @@
       const eng = this.engine;
       if (eng.gameOver) return;
       if (eng._resolving) return;
-      if (eng.pieceId !== this.lastPieceId && this.state === 'idle') {
+      if (eng.pieceId !== this.lastPieceId) {
         this.lastPieceId = eng.pieceId;
+        this.inputQueue = [];
         this.state = 'thinking';
         this.timer = this.cfg.minDelay + Math.random() * (this.cfg.maxDelay - this.cfg.minDelay);
       }
@@ -296,7 +297,7 @@
         this.timer -= dtMs;
         if (this.timer <= 0) {
           const seq = this._decide();
-          this.inputQueue = seq || ['hardDrop'];
+          this.inputQueue = seq || ['softDrop'];
           this.inputTimer = 0;
           this.state = 'acting';
         }
