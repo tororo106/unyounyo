@@ -4,6 +4,7 @@ const { createCPU, DIFFICULTIES } = require('../shared/cpu');
 
 const TICK_MS = 50;
 const MAX_PLAYERS_CAP = 4;
+const GARBAGE_DELAY_MS = 650;
 
 function makeEngine(mode, seed) {
   return mode === 'puyo' ? new PuyoEngine({ seed }) : new TetrisEngine({ seed });
@@ -41,6 +42,8 @@ class Room {
     this.status = 'lobby'; // lobby | playing | results
     this.cpuCounter = 0;
     this.createdAt = Date.now();
+    this.garbageQueue = [];
+    this.lastAttackEvents = [];
   }
 
   get playerList() { return Array.from(this.players.values()); }
@@ -60,7 +63,7 @@ class Room {
     this.spectators.set(socketId, { id: socketId, name });
   }
 
-  addCPU(difficulty) {
+  addCPU(difficulty, mode) {
     if (this.status !== 'lobby') return { error: 'IN_PROGRESS' };
     if (this.isFull()) return { error: 'ROOM_FULL' };
     this.cpuCounter++;
@@ -68,6 +71,7 @@ class Room {
     const names = ['CPUたろう', 'CPUはなこ', 'CPUジロー', 'CPUみさき', 'CPUれん', 'CPUゆい'];
     const name = names[Math.floor(Math.random() * names.length)];
     const p = new Player(id, name, true, DIFFICULTIES.includes(difficulty) ? difficulty : 'normal');
+    p.mode = mode === 'puyo' ? 'puyo' : 'tetris';
     if (!this.hostId) this.hostId = id;
     this.players.set(id, p);
     return { player: p };
@@ -181,9 +185,9 @@ class Room {
     if (events.garbageOut > 0) {
       const target = this.pickTarget(player);
       if (target) {
-        target.engine.receiveGarbage(events.garbageOut);
-        target.focusTarget = player.id;
+        this.garbageQueue.push({ from: player.id, to: target.id, amount: events.garbageOut, at: Date.now() + GARBAGE_DELAY_MS });
       }
+      this.lastAttackEvents.push({ playerId: player.id, mode: player.mode, amount: events.garbageOut, label: events.attackLabel || '', at: Date.now() });
     }
     if (events.gameOver && !player.finished) {
       player.finished = true;
@@ -218,6 +222,15 @@ class Room {
 
   tick(dtMs) {
     if (this.status !== 'playing') return [];
+    const now = Date.now();
+    const due = this.garbageQueue.filter((item) => item.at <= now);
+    this.garbageQueue = this.garbageQueue.filter((item) => item.at > now);
+    for (const item of due) {
+      let target = this.players.get(item.to);
+      if (!target || !target.engine || target.engine.gameOver) target = this.pickTarget(this.players.get(item.from) || { id: item.from });
+      if (target) target.engine.receiveGarbage(item.amount);
+    }
+    this.lastAttackEvents = this.lastAttackEvents.filter((e) => now - e.at < 1400);
     const lockEvents = [];
     for (const p of this.playerList) {
       if (!p.engine || p.engine.gameOver) continue;
@@ -267,6 +280,8 @@ class Room {
         place: p.place,
         manualTarget: p.manualTarget,
         state: p.engine ? p.engine.getState() : null,
+        pendingIncoming: this.garbageQueue.filter((g) => g.to === p.id).reduce((sum, g) => sum + g.amount, 0),
+        attackEvents: this.lastAttackEvents.filter((e) => e.playerId === p.id),
       })),
     };
   }

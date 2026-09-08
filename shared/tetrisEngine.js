@@ -290,7 +290,8 @@
         }
       }
       this._spawnPiece();
-      const events = { locked: true, linesCleared: cleared, garbageOut, garbageIn: received, gameOver: this.gameOver, perfectClear };
+      const attackLabel = cleared >= 4 ? 'TETRIS！' : (cleared === 3 ? '3ライン！' : (cleared === 2 ? 'ダブル！' : ''));
+      const events = { locked: true, linesCleared: cleared, garbageOut, garbageIn: received, gameOver: this.gameOver, perfectClear, attackLabel };
       this.lastEvents = events;
       return events;
     }

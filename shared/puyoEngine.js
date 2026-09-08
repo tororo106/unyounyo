@@ -227,7 +227,7 @@
           }
         }
         this._spawnPair();
-        const events = { locked: true, chain, garbageOut, garbageIn: received, gameOver: this.gameOver };
+        const events = { locked: true, chain, garbageOut, garbageIn: received, gameOver: this.gameOver, attackLabel: chain > 0 ? `${chain}連鎖！` : '' };
         this.lastEvents = events;
         return events;
       }

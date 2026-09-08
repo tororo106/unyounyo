@@ -134,6 +134,10 @@
 
   <div id="lobby-host-controls" class="lobby-host-controls hidden">
     <div class="cpu-add-row">
+      <select id="lobby-add-cpu-mode" class="select-input">
+        <option value="tetris">CPU: ブロック</option>
+        <option value="puyo">CPU: ぷよ</option>
+      </select>
       <select id="lobby-add-cpu-difficulty" class="select-input">
         <option value="easy">CPU: よわい</option>
         <option value="normal" selected>CPU: ふつう</option>
@@ -174,7 +178,8 @@
 
     <div class="board-wrap">
       <canvas id="main-canvas" width="360" height="720"></canvas>
-      <div id="garbage-meter" class="garbage-meter"><div class="fill" id="garbage-fill" style="height:0%"></div></div>
+      <div id="garbage-meter" class="garbage-meter" aria-label="おじゃま予告"><div class="fill" id="garbage-fill" style="height:0%"></div><span id="garbage-label">0</span></div>
+      <div id="attack-notice" class="attack-notice hidden" aria-live="polite"></div>
     </div>
 
     <div class="side-panel right-side">

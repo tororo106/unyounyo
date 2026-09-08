@@ -99,11 +99,11 @@ io.on('connection', (socket) => {
     broadcastLobby(room);
   });
 
-  socket.on('addCPU', (difficulty) => {
+  socket.on('addCPU', ({ difficulty, mode } = {}) => {
     const roomId = manager.socketRoom.get(socket.id);
     const room = manager.get(roomId);
     if (!room || room.status !== 'lobby' || room.hostId !== socket.id) return;
-    room.addCPU(difficulty);
+    room.addCPU(difficulty, mode);
     broadcastLobby(room);
   });
 

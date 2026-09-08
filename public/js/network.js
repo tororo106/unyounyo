@@ -19,7 +19,7 @@ const Network = (() => {
     leaveRoom: () => socket.emit('leaveRoom'),
     setMode: (mode) => socket.emit('setMode', mode),
     setReady: (ready) => socket.emit('setReady', ready),
-    addCPU: (difficulty) => socket.emit('addCPU', difficulty),
+    addCPU: (difficulty, mode) => socket.emit('addCPU', { difficulty, mode }),
     removeCPU: (cpuId) => socket.emit('removeCPU', cpuId),
     startGame: () => socket.emit('startGame'),
     backToLobby: () => socket.emit('backToLobby'),

@@ -242,13 +242,17 @@ body.is-spectator #garbage-meter { display: none; }
 .mini-puyo-pair span { width: 16px; height: 16px; border-radius: 50%; display: block; }
 .hold-na { font-size: 10px; color: var(--ink-dim); }
 
-.board-wrap { position: relative; }
+.board-wrap { position: relative; touch-action: none; }
+#main-canvas { touch-action: none; }
+.attack-notice { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); background: var(--pink); color: #2a0b1c; padding: 8px 12px; border-radius: var(--radius-m); font-family: var(--font-head); font-weight: 800; white-space: nowrap; z-index: 3; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.attack-notice.hidden { display: none; }
 #main-canvas { background: rgba(10,8,25,0.5); border: 3px solid var(--bg-3); border-radius: var(--radius-s); max-height: 62vh; max-width: 46vw; }
 .garbage-meter {
   position: absolute; right: -12px; top: 0; bottom: 0; width: 8px;
   background: var(--bg-2); border-radius: 4px; overflow: hidden; display: flex; flex-direction: column-reverse;
 }
 .garbage-meter .fill { background: linear-gradient(0deg, var(--danger), #ff9a9a); width: 100%; }
+.garbage-meter #garbage-label { position: absolute; inset: 0; writing-mode: vertical-rl; font-size: 10px; color: var(--ink); text-align: center; padding: 4px 0; text-shadow: 0 1px 2px #000; }
 
 /* ---------- VIRTUAL CONTROLLER ---------- */
 .vcontroller {
