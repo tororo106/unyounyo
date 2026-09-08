@@ -26,7 +26,18 @@ html, body {
   font-family: var(--font-body);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+.btn, .vcontroller, .vcontroller * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
 }
 
 button { font-family: var(--font-head); }
