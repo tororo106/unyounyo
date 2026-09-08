@@ -99,11 +99,11 @@ io.on('connection', (socket) => {
     broadcastLobby(room);
   });
 
-  socket.on('addCPU', ({ difficulty, mode } = {}) => {
+  socket.on('addCPU', (difficulty) => {
     const roomId = manager.socketRoom.get(socket.id);
     const room = manager.get(roomId);
     if (!room || room.status !== 'lobby' || room.hostId !== socket.id) return;
-    room.addCPU(difficulty, mode);
+    room.addCPU(difficulty);
     broadcastLobby(room);
   });
 
@@ -143,6 +143,8 @@ io.on('connection', (socket) => {
     const room = manager.get(roomId);
     if (!room) return;
     room.applyInput(socket.id, action);
+    const anns = room.drainAnnouncements();
+    if (anns.length) io.to(roomId).emit('attackEvents', anns);
   });
 
   socket.on('cycleTarget', (direction) => {
@@ -167,9 +169,8 @@ setInterval(() => {
   const activeRooms = manager.tickAll(TICK_MS);
   for (const room of activeRooms) {
     io.to(room.id).emit('gameState', room.gameStateFor());
-    if (room.status === 'results') {
-      // one final broadcast happened above; announce once more for clarity next tick will just repeat harmlessly
-    }
+    const anns = room.drainAnnouncements();
+    if (anns.length) io.to(room.id).emit('attackEvents', anns);
   }
 }, TICK_MS);
 
