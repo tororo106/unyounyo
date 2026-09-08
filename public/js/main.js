@@ -44,8 +44,6 @@
       Network.setName(s.name);
     }
     $('settings-name-input').value = s.name || '';
-    $('settings-input-mode').value = s.controls.inputMode || 'dpad';
-    applyInputMode();
     buildBindingTables();
   }
 
@@ -76,16 +74,6 @@
   $('btn-open-settings-home').addEventListener('click', () => openModal('modal-settings'));
   $('btn-close-settings').addEventListener('click', () => closeModal('modal-settings'));
   $('btn-menu-settings').addEventListener('click', () => openModal('modal-settings'));
-  function applyInputMode() {
-    const mode = Settings.current.controls.inputMode || 'dpad';
-    document.body.classList.toggle('input-stick', mode === 'stick');
-    document.body.classList.toggle('input-dpad', mode !== 'stick');
-  }
-  $('settings-input-mode').addEventListener('change', (e) => {
-    Settings.current.controls.inputMode = e.target.value === 'stick' ? 'stick' : 'dpad';
-    Settings.save();
-    applyInputMode();
-  });
 
   function keyLabel(k) {
     if (k === ' ') return 'Space';
@@ -174,12 +162,9 @@
       try {
         const parsed = JSON.parse(reader.result);
         Settings.current.controls = {
-          inputMode: parsed.inputMode === 'stick' ? 'stick' : 'dpad',
           keyboard: Object.assign({}, DEFAULT_CONTROLS.keyboard, parsed.keyboard),
           buttons: Object.assign({}, DEFAULT_CONTROLS.buttons, parsed.buttons),
         };
-        $('settings-input-mode').value = Settings.current.controls.inputMode;
-        applyInputMode();
         Settings.save();
         buildBindingTables();
         showToast('操作設定を読み込みました');
@@ -297,7 +282,7 @@
   });
 
   $('btn-add-cpu').addEventListener('click', () => {
-    Network.addCPU($('lobby-add-cpu-difficulty').value, $('lobby-add-cpu-mode').value);
+    Network.addCPU($('lobby-add-cpu-difficulty').value);
   });
 
   $('btn-start-game').addEventListener('click', () => {
@@ -322,7 +307,7 @@
       if (mine) card.classList.add('me');
       const modeLabel = p.mode === 'puyo' ? 'パズルモード' : 'ブロックモード';
       card.innerHTML = `
-        <div class="pname">${escapeHtml(p.name)} ${p.isCPU ? `<span class="ptag">CPU ${diffLabel(p.difficulty)}・${p.mode === 'puyo' ? 'ぷよ' : 'テトリス'}</span>` : ''}</div>
+        <div class="pname">${escapeHtml(p.name)} ${p.isCPU ? `<span class="ptag">CPU ${diffLabel(p.difficulty)}</span>` : ''}</div>
         <div class="pmode">${modeLabel}</div>
         <div class="pready ${p.ready ? 'ok' : 'wait'}">${p.ready ? '準備OK' : '準備中…'}</div>
       `;
@@ -427,6 +412,48 @@
     else renderMyView(payload);
   });
 
+  const TETRIS_CLEAR_NAMES = { 1: 'シングル', 2: 'ダブル', 3: 'トリプル', 4: 'テトリス' };
+  const opponentShakeUntil = {};
+
+  function announcementText(a) {
+    let title;
+    if (a.type === 'garbageLanded') {
+      title = `${a.playerName} におじゃま着弾！`;
+      return { title, weight: `+${a.amount}`, cls: 'garbage-landed' };
+    }
+    if (a.mode === 'puyo') {
+      title = `${a.playerName}: ${a.chain}連鎖！`;
+    } else {
+      const name = TETRIS_CLEAR_NAMES[a.linesCleared] || `${a.linesCleared}ライン消去`;
+      const tags = [];
+      if (a.backToBack) tags.push('B2B');
+      if (a.combo > 1) tags.push(`${a.combo}コンボ`);
+      if (a.perfectClear) tags.push('全消し');
+      title = `${a.playerName}: ${name}${tags.length ? ' ' + tags.join(' ') : ''}！`;
+    }
+    return { title, weight: a.garbageOut > 0 ? `おじゃま+${a.garbageOut}` : null, cls: '' };
+  }
+
+  function showAnnouncement(a) {
+    const { title, weight, cls } = announcementText(a);
+    const el = document.createElement('div');
+    el.className = 'attack-toast' + (a.playerId === Network.socket.id ? ' mine' : '') + (cls ? ' ' + cls : '');
+    el.innerHTML = escapeHtml(title) + (weight ? `<span class="toast-weight">${escapeHtml(weight)}</span>` : '');
+    $('attack-announcements').appendChild(el);
+    setTimeout(() => el.remove(), 2050);
+
+    if (a.type === 'garbageLanded') {
+      if (a.playerId === Network.socket.id) {
+        const bw = document.querySelector('.board-wrap');
+        if (bw) { bw.classList.remove('board-shake'); void bw.offsetWidth; bw.classList.add('board-shake'); }
+      } else {
+        opponentShakeUntil[a.playerId] = Date.now() + 400;
+      }
+    }
+  }
+
+  Network.on('attackEvents', (list) => { list.forEach(showAnnouncement); });
+
   function renderMyView(payload) {
     const me = payload.players.find((p) => p.id === Network.socket.id);
     const others = payload.players.filter((p) => p.id !== Network.socket.id);
@@ -443,26 +470,16 @@
         $('level-label').textContent = me.state.chain || 0;
       }
       const maxGarbage = 24;
-      const incoming = (me.state.pendingGarbage || 0) + (me.pendingIncoming || 0);
-      const pct = Math.min(100, Math.round((incoming / maxGarbage) * 100));
+      const pct = Math.min(100, Math.round((me.state.pendingGarbage / maxGarbage) * 100));
       $('garbage-fill').style.height = pct + '%';
-      $('garbage-label').textContent = `${incoming}${me.state.mode === 'puyo' ? '個' : '段'}`;
-      const attack = (me.attackEvents || [])[me.attackEvents.length - 1];
-      if (attack && attack.at !== renderMyView._lastAttack) {
-        renderMyView._lastAttack = attack.at;
-        const notice = $('attack-notice');
-        notice.textContent = `${attack.label || (attack.mode === 'puyo' ? '連鎖攻撃' : 'ライン攻撃')} おじゃま${attack.amount}${attack.mode === 'puyo' ? '個' : '段'}`;
-        notice.classList.remove('hidden');
-        clearTimeout(renderMyView._noticeTimer);
-        renderMyView._noticeTimer = setTimeout(() => notice.classList.add('hidden'), 1400);
-      }
+      $('garbage-meter').classList.toggle('incoming', me.state.pendingGarbage > 0 && me.state.garbageTimerMs > 0);
     }
 
     const row = $('opponents-row');
     row.innerHTML = '';
     others.forEach((p) => {
       const card = document.createElement('div');
-      card.className = 'opp-card' + (p.finished ? ' finished' : '') + (me && me.manualTarget === p.id ? ' is-target' : '');
+      card.className = 'opp-card' + (p.finished ? ' finished' : '') + (me && me.manualTarget === p.id ? ' is-target' : '') + (opponentShakeUntil[p.id] && Date.now() < opponentShakeUntil[p.id] ? ' board-shake' : '');
       const canvas = document.createElement('canvas');
       canvas.width = 84; canvas.height = 84;
       card.appendChild(canvas);
@@ -532,6 +549,21 @@
   }
 
   $('btn-back-to-lobby').addEventListener('click', () => Network.backToLobby());
+
+  // ---------------- global touch/zoom hardening ----------------
+  // iOS Safari recognizes pinch-zoom via separate "gesture" events that are
+  // NOT covered by CSS touch-action, so multi-finger play (stick + face
+  // button at once) can trigger zoom even with touch-action:none everywhere.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((evt) => {
+    document.addEventListener(evt, (e) => e.preventDefault());
+  });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  let __lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - __lastTouchEnd <= 350) e.preventDefault();
+    __lastTouchEnd = now;
+  }, { passive: false });
 
   // ---------------- boot ----------------
   initNameAndSettings();
